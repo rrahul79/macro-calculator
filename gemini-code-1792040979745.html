@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MacroPulse — Daily Meal & Macro Calculator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for in-browser JSX parsing -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const INITIAL_FOODS = [
+      { id: '1', name: 'Steamed Idli (2 pcs)', serving: '2 pieces (~80g)', calories: 116, protein: 4, carbs: 24, fat: 0.4, category: 'South Indian' },
+      { id: '2', name: 'Bidadi Thatte Idli (1 pc)', serving: '1 large piece (~120g)', calories: 175, protein: 5.5, carbs: 35, fat: 1.2, category: 'South Indian' },
+      { id: '3', name: 'Rava Idli (1 pc)', serving: '1 piece (~95g)', calories: 165, protein: 4.2, carbs: 26, fat: 4.8, category: 'South Indian' },
+      { id: '4', name: 'Masala Dosa', serving: '1 medium dosa', calories: 340, protein: 7, carbs: 48, fat: 13, category: 'South Indian' },
+      { id: '5', name: 'Plain Roast Dosa', serving: '1 dosa', calories: 210, protein: 4.5, carbs: 32, fat: 7, category: 'South Indian' },
+      { id: '6', name: 'Sambar', serving: '1 katori (150ml)', calories: 115, protein: 5.5, carbs: 16, fat: 3.2, category: 'South Indian' },
+      { id: '7', name: 'Coconut Chutney', serving: '2 tbsp (30g)', calories: 75, protein: 1.2, carbs: 3, fat: 6.5, category: 'South Indian' },
+      { id: '8', name: 'Ragi Mudde', serving: '1 ball (150g)', calories: 180, protein: 4.5, carbs: 38, fat: 0.8, category: 'South Indian' },
+      { id: '9', name: 'Filter Coffee (with milk)', serving: '1 cup (120ml)', calories: 70, protein: 2.5, carbs: 8, fat: 3.2, category: 'Beverages' },
+      { id: '10', name: 'Poha (with peanuts)', serving: '1 bowl (150g)', calories: 250, protein: 5.5, carbs: 42, fat: 7, category: 'Indian Staples' },
+      { id: '11', name: 'Paneer Bhurji / Tikka', serving: '150g serving', calories: 330, protein: 22, carbs: 8, fat: 24, category: 'High Protein' },
+      { id: '12', name: 'Toor Dal Tadka', serving: '1 bowl (180g)', calories: 195, protein: 9.5, carbs: 26, fat: 6, category: 'Indian Staples' },
+      { id: '13', name: 'Chana Masala / Chole', serving: '1 bowl (180g)', calories: 240, protein: 11, carbs: 34, fat: 7, category: 'Indian Staples' },
+      { id: '14', name: 'Whole Wheat Roti / Chapati', serving: '1 medium (40g)', calories: 110, protein: 3.5, carbs: 22, fat: 1, category: 'Indian Staples' },
+      { id: '15', name: 'Steamed White Rice', serving: '1 bowl (150g cooked)', calories: 195, protein: 4, carbs: 43, fat: 0.4, category: 'Indian Staples' },
+      { id: '16', name: 'Whey Protein Isolate', serving: '1 scoop (30g)', calories: 120, protein: 25, carbs: 2, fat: 1, category: 'High Protein' },
+      { id: '17', name: 'Boiled Eggs (2 Whole)', serving: '2 large eggs', calories: 140, protein: 12.6, carbs: 1, fat: 10, category: 'High Protein' },
+      { id: '18', name: 'Greek Yogurt / Hung Curd', serving: '1 cup (150g)', calories: 100, protein: 15, carbs: 6, fat: 1.5, category: 'High Protein' },
+      { id: '19', name: 'Rolled Oats (Dry weight)', serving: '50g', calories: 190, protein: 6.5, carbs: 34, fat: 3.2, category: 'Staples' },
+      { id: '20', name: 'Roasted Peanuts / Almonds', serving: '30g handful', calories: 175, protein: 7, carbs: 5, fat: 15, category: 'Snacks' }
+    ];
+
+    const MEAL_CATEGORIES = ['Breakfast', 'Lunch', 'Snacks', 'Dinner'];
+
+    function RingGauge({ label, current, target, unit, color }) {
+      const radius = 38;
+      const circumference = 2 * Math.PI * radius;
+      const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+      const offset = circumference - (pct / 100) * circumference;
+
+      return (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center">
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90">
+              <circle cx="48" cy="48" r={radius} stroke="#1e293b" strokeWidth="8" fill="transparent" />
+              <circle
+                cx="48"
+                cy="48"
+                r={radius}
+                stroke={color}
+                strokeWidth="8"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                fill="transparent"
+                className="transition-all duration-500"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="text-lg font-bold text-white">{Math.round(current)}</span>
+              <span className="text-[11px] text-slate-400">/ {target}{unit}</span>
+            </div>
+          </div>
+          <span className="mt-2 text-sm font-medium text-slate-300">{label}</span>
+          <span className="text-xs text-slate-400">
+            {target - current >= 0 ? `${Math.round(target - current)}${unit} left` : `${Math.round(current - target)}${unit} over`}
+          </span>
+        </div>
+      );
+    }
+
+    function App() {
+      const [targets, setTargets] = useState(() => {
+        const saved = localStorage.getItem('mp_targets');
+        return saved ? JSON.parse(saved) : { calories: 2100, protein: 140, carbs: 230, fat: 65 };
+      });
+
+      const [logs, setLogs] = useState(() => {
+        const saved = localStorage.getItem('mp_logs');
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      const [foods, setFoods] = useState(() => {
+        const saved = localStorage.getItem('mp_foods');
+        return saved ? JSON.parse(saved) : INITIAL_FOODS;
+      });
+
+      const [search, setSearch] = useState('');
+      const [selectedCategory, setSelectedCategory] = useState('All');
+      const [selectedMeal, setSelectedMeal] = useState('Breakfast');
+      const [qty, setQty] = useState(1);
+      const [showTdeeModal, setShowTdeeModal] = useState(false);
+
+      // TDEE Calculator States
+      const [age, setAge] = useState(24);
+      const [gender, setGender] = useState('male');
+      const [weight, setWeight] = useState(70);
+      const [height, setHeight] = useState(174);
+      const [activity, setActivity] = useState(1.55);
+      const [goalDelta, setGoalDelta] = useState(0);
+
+      // Custom Food Form
+      const [customFood, setCustomFood] = useState({ name: '', serving: '1 serving', calories: '', protein: '', carbs: '', fat: '' });
+
+      useEffect(() => { localStorage.setItem('mp_targets', JSON.stringify(targets)); }, [targets]);
+      useEffect(() => { localStorage.setItem('mp_logs', JSON.stringify(logs)); }, [logs]);
+      useEffect(() => { localStorage.setItem('mp_foods', JSON.stringify(foods)); }, [foods]);
+
+      const totals = useMemo(() => {
+        return logs.reduce((acc, item) => ({
+          calories: acc.calories + item.calories * item.qty,
+          protein: acc.protein + item.protein * item.qty,
+          carbs: acc.carbs + item.carbs * item.qty,
+          fat: acc.fat + item.fat * item.qty,
+        }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      }, [logs]);
+
+      const filteredFoods = useMemo(() => {
+        return foods.filter(f => {
+          const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase());
+          const matchesCat = selectedCategory === 'All' || f.category === selectedCategory;
+          return matchesSearch && matchesCat;
+        });
+      }, [foods, search, selectedCategory]);
+
+      const addLog = (food) => {
+        setLogs(prev => [...prev, { ...food, logId: Date.now() + Math.random(), meal: selectedMeal, qty: Number(qty) || 1 }]);
+      };
+
+      const removeLog = (logId) => {
+        setLogs(prev => prev.filter(item => item.logId !== logId));
+      };
+
+      const applyTdee = () => {
+        const bmr = gender === 'male'
+          ? 10 * weight + 6.25 * height - 5 * age + 5
+          : 10 * weight + 6.25 * height - 5 * age - 161;
+        const cals = Math.round(bmr * activity + goalDelta);
+        const protein = Math.round((cals * 0.30) / 4);
+        const carbs = Math.round((cals * 0.45) / 4);
+        const fat = Math.round((cals * 0.25) / 9);
+        setTargets({ calories: cals, protein, carbs, fat });
+        setShowTdeeModal(false);
+      };
+
+      const handleCreateCustomFood = (e) => {
+        e.preventDefault();
+        if (!customFood.name || !customFood.calories) return;
+        const newFood = {
+          id: String(Date.now()),
+          name: customFood.name,
+          serving: customFood.serving || '1 serving',
+          calories: Number(customFood.calories),
+          protein: Number(customFood.protein) || 0,
+          carbs: Number(customFood.carbs) || 0,
+          fat: Number(customFood.fat) || 0,
+          category: 'Custom'
+        };
+        setFoods(prev => [newFood, ...prev]);
+        setCustomFood({ name: '', serving: '1 serving', calories: '', protein: '', carbs: '', fat: '' });
+      };
+
+      return (
+        <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+          {/* Header */}
+          <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                MacroPulse
+              </h1>
+              <p className="text-xs text-slate-400">Interactive Daily Meal & Macro Calculator</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTdeeModal(!showTdeeModal)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition"
+              >
+                {showTdeeModal ? 'Close TDEE Calculator' : 'Calculate TDEE / Edit Goals'}
+              </button>
+              <button
+                onClick={() => setLogs([])}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20 transition"
+              >
+                Reset Day
+              </button>
+            </div>
+          </header>
+
+          {/* TDEE Modal / Drawer */}
+          {showTdeeModal && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <h2 className="text-base font-semibold text-white">TDEE & Macro Target Configurator</h2>
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+                <div>
+                  <label className="text-slate-400 block mb-1">Weight (kg)</label>
+                  <input type="number" value={weight} onChange={e => setWeight(+e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white" />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Height (cm)</label>
+                  <input type="number" value={height} onChange={e => setHeight(+e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white" />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Age</label>
+                  <input type="number" value={age} onChange={e => setAge(+e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white" />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Activity</label>
+                  <select value={activity} onChange={e => setActivity(+e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <option value={1.2}>Sedentary</option>
+                    <option value={1.375}>Light Active</option>
+                    <option value={1.55}>Moderate (3-5d/wk)</option>
+                    <option value={1.725}>Very Active</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">Goal</label>
+                  <select value={goalDelta} onChange={e => setGoalDelta(+e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white">
+                    <option value={-400}>Cut (-400 kcal)</option>
+                    <option value={0}>Maintain</option>
+                    <option value={300}>Lean Bulk (+300 kcal)</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button onClick={applyTdee} className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold py-2 rounded-lg transition">
+                    Apply TDEE
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ring Gauges */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <RingGauge label="Calories" current={totals.calories} target={targets.calories} unit=" kcal" color="#10b981" />
+            <RingGauge label="Protein" current={totals.protein} target={targets.protein} unit="g" color="#3b82f6" />
+            <RingGauge label="Carbs" current={totals.carbs} target={targets.carbs} unit="g" color="#f59e0b" />
+            <RingGauge label="Fats" current={totals.fat} target={targets.fat} unit="g" color="#ec4899" />
+          </div>
+
+          {/* Main Grid: Left Food Picker, Right Meal Log */}
+          <div className="grid md:grid-cols-12 gap-6">
+            {/* Food Database & Custom Food */}
+            <div className="md:col-span-7 space-y-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-semibold">Food Database</h2>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-slate-400">Log to:</span>
+                    <select value={selectedMeal} onChange={e => setSelectedMeal(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-emerald-400 font-medium">
+                      {MEAL_CATEGORIES.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <span className="text-slate-400">Qty:</span>
+                    <input type="number" min="0.5" step="0.5" value={qty} onChange={e => setQty(e.target.value)} className="w-16 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-center" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search Idli, Dosa, Paneer, Whey, Oats..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                  <select
+                    value={selectedCategory}
+                    onChange={e => setSelectedCategory(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300"
+                  >
+                    {['All', 'South Indian', 'Indian Staples', 'High Protein', 'Beverages', 'Snacks', 'Custom'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                  {filteredFoods.map(food => (
+                    <div key={food.id} className="flex items-center justify-between bg-slate-950/70 hover:bg-slate-950 border border-slate-800/80 rounded-xl p-3 transition">
+                      <div>
+                        <div className="font-medium text-sm text-white">{food.name}</div>
+                        <div className="text-xs text-slate-400">
+                          {food.serving} • <span className="text-emerald-400">{food.calories} kcal</span> • P: {food.protein}g | C: {food.carbs}g | F: {food.fat}g
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addLog(food)}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs transition"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add Custom Food */}
+              <form onSubmit={handleCreateCustomFood} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-slate-200">Add Custom Food</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
+                  <input placeholder="Food Name" value={customFood.name} onChange={e => setCustomFood({...customFood, name: e.target.value})} className="col-span-2 bg-slate-950 border border-slate-800 rounded-lg p-2" required />
+                  <input type="number" placeholder="Calories" value={customFood.calories} onChange={e => setCustomFood({...customFood, calories: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2" required />
+                  <input type="number" placeholder="Prot (g)" value={customFood.protein} onChange={e => setCustomFood({...customFood, protein: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2" />
+                  <input type="number" placeholder="Carb (g)" value={customFood.carbs} onChange={e => setCustomFood({...customFood, carbs: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2" />
+                  <input type="number" placeholder="Fat (g)" value={customFood.fat} onChange={e => setCustomFood({...customFood, fat: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2" />
+                </div>
+                <button type="submit" className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-emerald-400 transition">
+                  Save to Custom Foods
+                </button>
+              </form>
+            </div>
+
+            {/* Daily Meal Log */}
+            <div className="md:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+              <h2 className="text-base font-semibold">Today's Meal Breakdown</h2>
+              {MEAL_CATEGORIES.map(meal => {
+                const items = logs.filter(l => l.meal === meal);
+                const mealCals = items.reduce((s, i) => s + i.calories * i.qty, 0);
+                return (
+                  <div key={meal} className="bg-slate-950 border border-slate-800/80 rounded-xl p-3 space-y-2">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                      <span className="text-sm font-semibold text-slate-200">{meal}</span>
+                      <span className="text-xs font-medium text-emerald-400">{Math.round(mealCals)} kcal</span>
+                    </div>
+                    {items.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic">No items logged yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {items.map(item => (
+                          <div key={item.logId} className="flex justify-between items-center text-xs bg-slate-900/90 px-2.5 py-1.5 rounded-lg">
+                            <div>
+                              <span className="font-medium text-slate-200">{item.name}</span>
+                              <span className="text-slate-400"> × {item.qty}</span>
+                              <div className="text-[11px] text-slate-400">
+                                {Math.round(item.calories * item.qty)} kcal • P:{Math.round(item.protein * item.qty)}g C:{Math.round(item.carbs * item.qty)}g F:{Math.round(item.fat * item.qty)}g
+                              </div>
+                            </div>
+                            <button onClick={() => removeLog(item.logId)} className="text-rose-400 hover:text-rose-300 px-1.5">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
